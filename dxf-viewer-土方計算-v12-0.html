@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terrain Pro v12.0 (高程投影精度修正版)</title>
+    <style>
+        :root {
+            --bg-body: #111;
+            --bg-sidebar: rgba(25, 25, 25, 0.95);
+            --text-main: white;
+            --text-sub: #aaa;
+            --border-color: #444;
+            --input-bg: #222;
+            --hover-bg: #333;
+            --active-color: #4db8ff;
+            --item-bg: rgba(255,255,255,0.05);
+            --btn-bg: #0066cc;
+            --btn-hover: #007ae6;
+            --modal-bg: #1e1e1e;
+        }
+
+        body.light-mode {
+            --bg-body: #f0f0f0;
+            --bg-sidebar: rgba(245, 245, 245, 0.95);
+            --text-main: #333;
+            --text-sub: #666;
+            --border-color: #ccc;
+            --input-bg: #fff;
+            --hover-bg: #e0e0e0;
+            --active-color: #007acc;
+            --item-bg: rgba(0,0,0,0.05);
+            --btn-bg: #007acc;
+            --btn-hover: #008ae6;
+            --modal-bg: #ffffff;
+        }
+
+        body { margin: 0; overflow: hidden; font-family: "Microsoft JhengHei", sans-serif; background-color: var(--bg-body); color: var(--text-main); display: flex; height: 100vh; transition: background 0.3s, color 0.3s; }
+        
+        #sidebar {
+            width: 380px;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            z-index: 20;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.5);
+            transition: background 0.3s;
+        }
+
+        .header-row { display: flex; align-items: center; border-bottom: 1px solid var(--border-color); background: var(--input-bg); flex-shrink: 0; }
+        .mode-switch { display: flex; flex-grow: 1; }
+        .mode-btn { flex: 1; padding: 12px; cursor: pointer; text-align: center; color: var(--text-sub); font-weight: bold; border-bottom: 3px solid transparent; transition: 0.3s; }
+        .mode-btn:hover { background: var(--hover-bg); color: var(--text-main); }
+        .mode-btn.active { color: var(--active-color); border-bottom: 3px solid var(--active-color); background: var(--bg-sidebar); }
+
+        .icon-btn { width: 40px; text-align: center; cursor: pointer; font-size: 18px; line-height: 45px; border-left: 1px solid var(--border-color); color: var(--text-sub); transition: 0.2s;}
+        .icon-btn:hover { color: var(--text-main); background: var(--hover-bg); }
+
+        .file-section { padding: 15px; border-bottom: 1px solid var(--border-color); background: var(--bg-sidebar); }
+        
+        .encoding-select {
+            width: 100%; padding: 5px; margin-bottom: 8px; background: var(--input-bg); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 4px; font-size: 12px;
+        }
+
+        input[type="file"] { width: 100%; font-size: 12px; color: var(--text-sub); margin-bottom: 8px;}
+        .global-status { font-size: 12px; color: #ffeb3b; min-height: 18px; font-weight: bold; margin-bottom: 5px; }
+        .unit-hint { font-size: 11px; color: var(--text-sub); margin-bottom: 8px; font-style: italic;}
+
+        .scroll-content { flex-grow: 1; overflow-y: auto; padding: 15px; display: none; }
+        .scroll-content.active { display: block; }
+
+        .section { margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+        .tag-container { display:flex; gap:5px; margin-top:5px; }
+        .tag { font-size:11px; padding:3px 6px; background:var(--input-bg); color:var(--text-sub); border: 1px solid var(--border-color); border-radius:3px; flex:1; text-align:center; transition:0.3s;}
+        .tag.active { color: var(--text-main); font-weight:bold; border-color:transparent;}
+        .tag-b.active { background:var(--active-color); color:#fff; }
+        .tag-e.active { background:#ff5555; color:#fff;}
+        .tag-f.active { background:#d0f; color:#fff;}
+        
+        .unit-group { display: flex; gap: 15px; margin-bottom: 10px; font-size: 12px; color:var(--text-sub); align-items: center;}
+        .radio-label { cursor: pointer; display: flex; align-items: center; }
+        .radio-label input { margin-right: 5px; accent-color: var(--active-color); }
+
+        .calc-btn { width: 100%; padding: 8px; background: var(--btn-bg); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .calc-btn:hover { background: var(--btn-hover); }
+        .calc-btn:disabled { background: var(--border-color); cursor: not-allowed; color: var(--text-sub); }
+
+        .slider-group { margin-bottom: 10px; }
+        .slider-label { display:flex; justify-content:space-between; font-size:12px; color:var(--text-sub); margin-bottom:2px;}
+        .slider-container { display: flex; align-items: center; gap: 10px; }
+        input[type="range"] { flex-grow: 1; cursor: pointer; accent-color: var(--active-color); }
+        input[type="number"] { width: 60px; padding: 4px; background: var(--input-bg); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; text-align: right;}
+
+        .calc-box { background: var(--item-bg); padding: 12px; border-radius: 6px; border: 1px solid var(--border-color); margin-top: 10px;}
+        .calc-header { color: var(--active-color); font-weight: bold; margin-bottom: 10px; font-size: 14px; }
+        .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-color); }
+        .res-item { background: var(--item-bg); padding: 5px; border-radius: 4px; }
+        .res-val { font-weight: bold; font-size: 14px; display:block;}
+        .val-cut { color: #ff5555; } .val-fill { color: #55ff55; } 
+        .val-net { color: #ffff55; }
+        body.light-mode .val-net { color: #dcb000; }
+
+        label { display: block; font-size: 13px; margin-bottom: 6px; cursor: pointer; user-select: none; color: var(--text-sub);}
+        input[type="checkbox"] { margin-right: 8px; vertical-align: middle; accent-color: var(--active-color);}
+
+        .stat-item { padding: 8px; margin-bottom: 5px; background: var(--input-bg); border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between; font-size: 12px; border: 1px solid transparent;}
+        .stat-item:hover { background: var(--hover-bg); border-color: var(--border-color); }
+        .stat-count { color: var(--active-color); font-weight: bold; }
+        
+        .entity-row { padding: 6px; border-bottom: 1px solid var(--border-color); cursor: pointer; display: flex; align-items: center; font-size: 12px; }
+        .entity-row:hover { background: var(--hover-bg); }
+        .ent-icon { width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.2); }
+        .ent-type { color: var(--text-main); font-weight: bold; width: 80px;}
+        .ent-layer { color: var(--text-sub); margin-left: auto; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 100px; }
+
+        #prop-panel {
+            height: 200px; background: var(--input-bg); border-top: 2px solid var(--active-color); padding: 10px; overflow-y: auto; font-family: Consolas, monospace; font-size: 11px; display: none; color: var(--text-main);
+        }
+        .json-key { color: #9cdcfe; } .json-val { color: #ce9178; } .json-num { color: #b5cea8; } .json-bool { color: #569cd6; }
+        body.light-mode .json-key { color: #007acc; } 
+        body.light-mode .json-val { color: #a31515; } 
+        body.light-mode .json-num { color: #098658; }
+
+        #main-view { flex-grow: 1; position: relative; background: #000; transition: background 0.3s; }
+        #view-3d, #view-2d { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+        #view-2d { display: none; }
+        
+        .toast { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 12px; pointer-events: none; opacity: 0; transition: opacity 0.5s; z-index: 100; border: 1px solid #555;}
+        body.light-mode .toast { background: #fff; color: #333; border: 1px solid #ccc; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+
+        #color-legend {
+            position: absolute; right: 20px; bottom: 40px; width: 50px; height: 180px;
+            background: rgba(30,30,30,0.7); padding: 10px; border-radius: 8px;
+            display: none; 
+            flex-direction: column; align-items: center; justify-content: space-between;
+            color: #fff; font-size: 11px; pointer-events: none; z-index: 50;
+            backdrop-filter: blur(2px); border: 1px solid rgba(255,255,255,0.2);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        body.light-mode #color-legend { background: rgba(255,255,255,0.8); color: #333; border: 1px solid rgba(0,0,0,0.1); }
+        .legend-bar {
+            width: 15px; flex-grow: 1; margin: 5px 0; border: 1px solid rgba(255,255,255,0.3);
+            background: linear-gradient(to bottom, hsl(0, 80%, 50%), hsl(60, 80%, 50%), hsl(120, 80%, 50%), hsl(180, 80%, 50%), hsl(240, 80%, 50%));
+        }
+
+        /* Modal Styles */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 999; display: none; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
+        .modal-box { background: var(--modal-bg); width: 600px; max-width: 90%; max-height: 80vh; border-radius: 8px; border: 1px solid var(--border-color); display: flex; flex-direction: column; color: var(--text-main); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .modal-header { padding: 15px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; font-size: 16px; font-weight: bold; background: var(--input-bg); border-radius: 8px 8px 0 0; }
+        .modal-body { padding: 20px; overflow-y: auto; line-height: 1.6; font-size: 14px; }
+        .modal-close { cursor: pointer; font-size: 20px; color: var(--text-sub); }
+        .modal-close:hover { color: var(--text-main); }
+        
+        .help-list { list-style: none; padding: 0; margin: 0; }
+        .help-list li { margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed var(--border-color); }
+        .help-list li:last-child { border-bottom: none; }
+        .help-title { color: var(--active-color); font-weight: bold; margin-bottom: 5px; display: block; font-size: 15px;}
+        .help-keyword { background: var(--item-bg); padding: 2px 6px; border-radius: 3px; font-family: monospace; color: #ffeb3b; border: 1px solid var(--border-color); font-size: 12px; margin-right: 4px; display: inline-block; margin-bottom: 3px;}
+        body.light-mode .help-keyword { color: #a31515; border-color: #ccc; }
+
+    </style>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dxf-parser@1.1.2/dist/dxf-parser.js"></script>
+    <script src="https://unpkg.com/delaunator@5.0.0/delaunator.min.js"></script>
+</head>
+<body>
+
+<div id="sidebar">
+    <div class="header-row">
+        <div class="mode-switch">
+            <div class="mode-btn active" onclick="switchMode('3d')">3D 地形分析</div>
+            <div class="mode-btn" onclick="switchMode('2d')">2D 檔案檢測</div>
+        </div>
+        <div class="icon-btn" onclick="toggleTheme()" title="切換深/淺色主題">🌗</div>
+        <div class="icon-btn" onclick="toggleHelp()" title="使用說明與注意事項">?</div>
+    </div>
+
+    <div id="panel-3d" class="scroll-content active">
+        <div class="file-section">
+            <label style="font-size:12px; margin-bottom:4px; color:var(--text-sub);">檔案編碼 (若圖層亂碼請改選 Big5)</label>
+            <select id="encodingSelect" class="encoding-select">
+                <option value="utf-8" selected>UTF-8 (預設 - 新版CAD)</option>
+                <option value="big5">Big5 (繁體中文 - 舊版CAD)</option>
+            </select>
+            
+            <input type="file" id="fileInput" accept=".dxf" />
+            <div id="globalStatus" class="global-status">請選擇 DXF 檔案</div>
+            <div id="unitHint" class="unit-hint"></div>
+            
+            <div class="unit-group">
+                <span style="color:var(--text-sub); margin-right:5px;">選擇單位:</span>
+                <label class="radio-label"><input type="radio" name="dxfUnit" value="1" checked> M</label>
+                <label class="radio-label"><input type="radio" name="dxfUnit" value="0.001"> mm</label>
+            </div>
+            
+            <button id="btnCalc" class="calc-btn" disabled onclick="runCalculation()">開始計算 / 生成模型</button>
+        </div>
+
+        <div class="section">
+            <div class="tag-container">
+                <div id="tagB" class="tag tag-b">範圍(0)</div>
+                <div id="tagE" class="tag tag-e">排除</div>
+                <div id="tagF" class="tag tag-f">特徵(0)</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="slider-group">
+                <div class="slider-label">採樣密度 (m)</div>
+                <div class="slider-container">
+                    <input type="range" id="densitySlider" min="0.5" max="20" step="0.5" value="5">
+                    <input type="number" id="densityInput" value="5.0" step="0.5">
+                </div>
+            </div>
+            
+            <label><input type="checkbox" id="autoFixZ" checked> <b>自動修正 Z=0 邊界 (IDW)</b></label>
+            
+            <div style="margin-bottom:8px;">
+                <span style="font-size:12px; color:var(--text-sub); display:block; margin-bottom:4px;">計算範圍模式:</span>
+                <div style="display:flex; gap:15px; color:var(--text-sub); font-size:12px;">
+                    <label class="radio-label"><input type="radio" name="scopeMode" value="local" checked> 局部範圍</label>
+                    <label class="radio-label"><input type="radio" name="scopeMode" value="full"> 全廠範圍</label>
+                </div>
+            </div>
+            
+            <label><input type="checkbox" id="showMesh" checked> 地形著色</label>
+            <label><input type="checkbox" id="showWireframe"> 網格線</label>
+            <label><input type="checkbox" id="showPlane" checked> 設計高程面</label>
+            <hr style="border:0; border-top:1px solid var(--border-color); margin:5px 0;">
+            <label><input type="checkbox" id="showEdges" checked> <span id="lblEdges">範圍/排除框 (黃/紅)</span></label>
+            <label><input type="checkbox" id="showFeatures" checked> <span id="lblFeatures">特徵線 (白)</span></label>
+        </div>
+
+        <div class="calc-box">
+            <div class="calc-header">土方計算</div>
+            <div class="slider-group">
+                <div class="slider-label">設計高程 Z</div>
+                <div class="slider-container">
+                    <input type="range" id="refSlider" disabled>
+                    <input type="number" id="refInput" disabled>
+                </div>
+            </div>
+            <div class="result-grid">
+                <div class="res-item"><span class="res-label">挖方</span><span id="resCut" class="res-val val-cut">0.00</span></div>
+                <div class="res-item"><span class="res-label">填方</span><span id="resFill" class="res-val val-fill">0.00</span></div>
+                <div class="res-item" style="grid-column:span 2;text-align:center;"><span class="res-label">淨體積</span><span id="resNet" class="res-val val-net">0.00</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="panel-2d" class="scroll-content">
+        <div id="inspector-summary"></div>
+        <div style="margin:10px 0; font-weight:bold; color:var(--active-color); border-top:1px solid var(--border-color); padding-top:10px;">圖層 (點擊篩選)</div>
+        <div id="inspector-layers"></div>
+        <div style="margin:10px 0; font-weight:bold; color:var(--active-color); border-top:1px solid var(--border-color); padding-top:10px;">實體清單</div>
+        <div id="inspector-entities"></div>
+    </div>
+
+    <div id="prop-panel">
+        <div style="color:var(--active-color); font-weight:bold; margin-bottom:5px; border-bottom:1px solid var(--border-color);">Raw Data</div>
+        <pre id="json-viewer"></pre>
+    </div>
+</div>
+
+<div id="main-view">
+    <div id="view-3d"></div>
+    <div id="view-2d"></div>
+    <div id="toast" class="toast">訊息</div>
+    <div id="color-legend">
+        <div id="legend-max">0.0</div>
+        <div class="legend-bar"></div>
+        <div id="legend-min">0.0</div>
+    </div>
+</div>
+
+<!-- Modal -->
+<div id="helpModal" class="modal-overlay" onclick="toggleHelp()">
+    <div class="modal-box" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <span>注意事項及說明</span>
+            <span class="modal-close" onclick="toggleHelp()">×</span>
+        </div>
+        <div class="modal-body">
+            <ul class="help-list">
+                <li>
+                    <span class="help-title">1. CAD 檔案前置處理 (重要)</span>
+                    • 請先將 DXF 檔進行清理 (PURGE)。<br>
+                    • 請移除不必要的圖層與物件。<br>
+                    • <b>外部參考 (XREF) 請務必移除或綁定 (Bind)</b>。
+                </li>
+                <li>
+                    <span class="help-title">2. 中文圖層與編碼</span>
+                    如果載入檔案後，發現「2D 檔案檢測」中的圖層名稱是亂碼，表示檔案是舊版編碼。<br>
+                    請在左側選單將編碼改為 <b>Big5</b>，然後重新選擇檔案。
+                </li>
+                <li>
+                    <span class="help-title">3. 圖層關鍵字與分類</span>
+                    程式會根據圖層名稱自動分類：<br>
+                    <b>【排除區】</b>：<span class="help-keyword">exclusion</span> <span class="help-keyword">void</span> <span class="help-keyword">建物</span> <span class="help-keyword">排除</span> <span class="help-keyword">構造物</span><br>
+                    <b>【範圍線】</b>：<span class="help-keyword">boundary</span> <span class="help-keyword">limit</span> <span class="help-keyword">界線</span> <span class="help-keyword">範圍</span> <span class="help-keyword">邊界</span> <span class="help-keyword">fl</span><br>
+                    <b>【特徵線】</b>：<span class="help-keyword">feature</span> <span class="help-keyword">contour</span> <span class="help-keyword">等高線</span> <span class="help-keyword">特徵</span>
+                </li>
+                <li>
+                    <span class="help-title">4. 自動高程修正 (IDW)</span>
+                    若範圍線是在 2D 平面繪製 (Z=0)，請勾選「自動修正 Z=0 邊界」。
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<script>
+    const LAYER_KEYS = {
+        BOUNDARY: ["section", "boundary", "範圍", "界線", "limit", "fl", "廠區邊界", "邊界", "site", "area"],
+        EXCLUSION: ["exclusion", "no_terrain", "建物", "排除", "void", "building", "構造物", "挖方", "開挖"],
+        FEATURE: ["feature", "contour", "等高線", "特徵", "terrain", "topo"]
+    };
+    
+    const THEME_COLORS = {
+        dark: {
+            bg: 0x000000,
+            boundary: 0xffff00, 
+            exclusion: 0xff0000, 
+            feature: 0xffffff,  
+            point: 0x00ffff     
+        },
+        light: {
+            bg: 0xffffff,
+            boundary: 0x0000ff, 
+            exclusion: 0xff0000, 
+            feature: 0x333333,  
+            point: 0xff00ff     
+        }
+    };
+
+    let isDarkMode = true;
+    let currentDxf = null;
+    let currentMode = '3d';
+
+    // 3D Vars
+    let scene3D, camera3D, renderer3D, controls3D;
+    let terrainGeometry = null, globalOffset = { x:0, y:0, z:0 };
+    let refPlaneMesh = null, boundaryPolygons = [], exclusionPolygons = [], featureLinesRaw = [], terrainPointsRaw = [];
+    let featureLinesVisuals = [];
+
+    // 2D Vars
+    let scene2D, camera2D, renderer2D, controls2D;
+    let entitiesGroup2D;
+    let allEntitiesList = [];
+    let bounds2D = null;
+
+    let densityDebounce = null;
+
+    function init() {
+        init3D();
+        init2D();
+        animate();
+    }
+
+    function init3D() {
+        const container = document.getElementById('view-3d');
+        scene3D = new THREE.Scene();
+        scene3D.background = new THREE.Color(THEME_COLORS.dark.bg);
+        
+        camera3D = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 5000000);
+        camera3D.up.set(0, 0, 1);
+        camera3D.position.set(0, -100, 100);
+
+        renderer3D = new THREE.WebGLRenderer({ antialias: true });
+        renderer3D.setSize(container.clientWidth, container.clientHeight);
+        container.appendChild(renderer3D.domElement);
+
+        controls3D = new THREE.OrbitControls(camera3D, renderer3D.domElement);
+        controls3D.enableDamping = true;
+
+        scene3D.add(new THREE.AmbientLight(0xffffff, 0.6));
+        const dl = new THREE.DirectionalLight(0xffffff, 0.7);
+        dl.position.set(100, -100, 200);
+        scene3D.add(dl);
+
+        const group = new THREE.Group();
+        group.name = "terrainGroup";
+        scene3D.add(group);
+    }
+
+    function init2D() {
+        const container = document.getElementById('view-2d');
+        scene2D = new THREE.Scene();
+        scene2D.background = new THREE.Color(THEME_COLORS.dark.bg);
+
+        const aspect = container.clientWidth / container.clientHeight;
+        const frustumSize = 1000;
+        camera2D = new THREE.OrthographicCamera(
+            frustumSize * aspect / -2, frustumSize * aspect / 2,
+            frustumSize / 2, frustumSize / -2, 0.1, 100000
+        );
+        camera2D.position.set(0, 0, 100);
+
+        renderer2D = new THREE.WebGLRenderer({ antialias: true });
+        renderer2D.setSize(container.clientWidth, container.clientHeight);
+        container.appendChild(renderer2D.domElement);
+
+        controls2D = new THREE.OrbitControls(camera2D, renderer2D.domElement);
+        controls2D.enableRotate = false;
+        controls2D.screenSpacePanning = true;
+        controls2D.enableDamping = true;
+
+        entitiesGroup2D = new THREE.Group();
+        scene2D.add(entitiesGroup2D);
+    }
+
+    // Toggle Help Modal
+    window.toggleHelp = function() {
+        const modal = document.getElementById('helpModal');
+        modal.style.display = (modal.style.display === 'flex') ? 'none' : 'flex';
+    }
+
+    window.toggleTheme = function() {
+        isDarkMode = !isDarkMode;
+        const theme = isDarkMode ? THEME_COLORS.dark : THEME_COLORS.light;
+        document.body.classList.toggle('light-mode', !isDarkMode);
+        
+        if (isDarkMode) {
+            document.getElementById('lblEdges').innerText = "範圍/排除框 (黃/紅)";
+            document.getElementById('lblFeatures').innerText = "特徵線 (白)";
+        } else {
+            document.getElementById('lblEdges').innerText = "範圍/排除框 (藍/紅)";
+            document.getElementById('lblFeatures').innerText = "特徵線 (黑)";
+        }
+
+        scene3D.background.setHex(theme.bg);
+        const tGroup = scene3D.getObjectByName("terrainGroup");
+        tGroup.children.forEach(c => {
+            if (c.name === 'edges') {
+                if (c.userData.type === 'BOUNDARY') c.material.color.setHex(theme.boundary);
+                if (c.userData.type === 'EXCLUSION') c.material.color.setHex(theme.exclusion);
+            }
+            if (c.name === 'featureLine') {
+                c.material.color.setHex(theme.feature);
+            }
+        });
+
+        scene2D.background.setHex(theme.bg);
+        entitiesGroup2D.children.forEach(c => {
+            if (c.userData.type) {
+                const type = c.userData.type;
+                if (type === 'BOUNDARY') c.material.color.setHex(theme.boundary);
+                else if (type === 'EXCLUSION') c.material.color.setHex(theme.exclusion);
+                else if (type === 'POINT') c.material.color.setHex(theme.point);
+                else c.material.color.setHex(theme.feature);
+            }
+        });
+
+        if (currentMode === '2d' && allEntitiesList.length > 0) {
+            allEntitiesList.forEach(e => {
+                let colorHex = theme.feature;
+                if(e.entType === 'BOUNDARY') colorHex = theme.boundary;
+                else if(e.entType === 'EXCLUSION') colorHex = theme.exclusion;
+                else if(e.entType === 'POINT') colorHex = theme.point;
+                e.color = new THREE.Color(colorHex);
+            });
+            render2DLists(); 
+        }
+    };
+
+    const fileInput = document.getElementById('fileInput');
+    const encodingSelect = document.getElementById('encodingSelect');
+    const parser = new DxfParser();
+
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        reset3D();
+        reset2D();
+        document.getElementById('globalStatus').innerText = "讀取檔案中...";
+        document.getElementById('btnCalc').disabled = true;
+        document.getElementById('unitHint').innerText = "";
+
+        const reader = new FileReader();
+        const selectedEncoding = encodingSelect.value;
+
+        reader.onload = (e) => {
+            try {
+                currentDxf = parser.parseSync(e.target.result);
+                document.getElementById('globalStatus').innerText = "檔案讀取成功";
+                
+                let insUnits = currentDxf.header?.$INSUNITS;
+                let unitMsg = "DXF 未指定單位 (預設 M)";
+                if(insUnits === 4) unitMsg = "DXF 內部設定為: Millimeters (建議選 mm)";
+                else if(insUnits === 6) unitMsg = "DXF 內部設定為: Meters (建議選 M)";
+                else if(insUnits === 1) unitMsg = "DXF 內部設定為: Inches";
+                document.getElementById('unitHint').innerText = unitMsg;
+
+                process3D_Preload(currentDxf);
+                document.getElementById('btnCalc').disabled = false;
+                showToast("檔案已載入，請確認單位後按「開始計算」");
+
+            } catch (err) {
+                console.error(err);
+                alert("解析失敗: " + err.message);
+                document.getElementById('globalStatus').innerText = "解析失敗";
+            } finally {
+                fileInput.value = '';
+            }
+        };
+        reader.readAsText(file, selectedEncoding);
+    });
+
+    window.runCalculation = function() {
+        if(!currentDxf) return;
+        document.getElementById('globalStatus').innerText = "運算中...";
+        setTimeout(() => {
+            generateTerrainMesh();
+            process2D(currentDxf);
+            document.getElementById('globalStatus').innerText = "計算完成";
+            showToast("模型生成完畢");
+        }, 50);
+    }
+
+    function cleanupObject(obj) {
+        if (!obj) return;
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+            if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+            else obj.material.dispose();
+        }
+        if (obj.children) {
+            while(obj.children.length > 0) {
+                cleanupObject(obj.children[0]);
+                obj.remove(obj.children[0]);
+            }
+        }
+    }
+
+    function reset3D() {
+        const group = scene3D.getObjectByName("terrainGroup");
+        cleanupObject(group); 
+        group.clear();
+        if(refPlaneMesh) { 
+            cleanupObject(refPlaneMesh);
+            scene3D.remove(refPlaneMesh); 
+            refPlaneMesh = null; 
+        }
+        terrainGeometry = null;
+        boundaryPolygons = []; exclusionPolygons = []; featureLinesRaw = []; terrainPointsRaw = [];
+        globalOffset = { x:0, y:0, z:0 }; // 重置座標偏移
+        document.getElementById('tagB').className="tag tag-b"; document.getElementById('tagB').innerText="範圍(0)";
+        document.getElementById('tagE').className="tag tag-e"; document.getElementById('tagE').innerText="排除";
+        document.getElementById('tagF').className="tag tag-f"; document.getElementById('tagF').innerText="特徵(0)";
+        document.getElementById('refSlider').disabled = true;
+        document.getElementById('refInput').disabled = true;
+        document.getElementById('resCut').innerText="0.00"; document.getElementById('resFill').innerText="0.00"; document.getElementById('resNet').innerText="0.00";
+        document.getElementById('color-legend').style.display = 'none';
+    }
+
+    function process3D_Preload(dxf) {
+        if (!dxf.entities) return;
+        
+        dxf.entities.forEach(ent => {
+            const layer = (ent.layer || "").toLowerCase();
+            const isPoly = (ent.type === 'LWPOLYLINE' || ent.type === 'POLYLINE');
+            const isClosed = (ent.shape || (ent.flags & 1));
+            
+            let entVertices = [];
+            if (isPoly && ent.vertices) {
+                const gZ = ent.elevation || 0;
+                entVertices = ent.vertices.map(v => ({ x: v.x, y: v.y, z: (v.z!==undefined)?v.z:gZ, bulge: v.bulge }));
+                
+                if(isClosed && entVertices.length > 0) {
+                    entVertices[entVertices.length - 1].connectToStart = true;
+                }
+            }
+
+            if (ent.type === 'CIRCLE' || ent.type === 'ARC') {
+                const curvePts = convertArcToPoints(ent);
+                
+                // Check if Circle/Arc is on a Boundary/Exclusion layer
+                if (LAYER_KEYS.EXCLUSION.some(k => layer.includes(k))) {
+                    exclusionPolygons.push({ vertices: curvePts });
+                } else if (LAYER_KEYS.BOUNDARY.some(k => layer.includes(k))) {
+                    boundaryPolygons.push({ vertices: curvePts });
+                } else {
+                    featureLinesRaw.push(curvePts);
+                }
+                return; // Stop processing this entity
+            }
+
+            // 1. 排除區
+            if (isPoly && isClosed && LAYER_KEYS.EXCLUSION.some(k=>layer.includes(k))) {
+                exclusionPolygons.push({ vertices: entVertices });
+                return;
+            }
+
+            // 2. 特徵線
+            if (LAYER_KEYS.FEATURE.some(k=>layer.includes(k))) {
+                if(isPoly) featureLinesRaw.push(entVertices);
+                else if (ent.type === 'LINE') featureLinesRaw.push([ent.vertices[0], ent.vertices[1]]);
+                return;
+            }
+
+            // 3. 範圍線
+            if (isPoly && isClosed && LAYER_KEYS.BOUNDARY.some(k=>layer.includes(k))) {
+                boundaryPolygons.push({ vertices: entVertices });
+                return;
+            }
+
+            // 4. 隱式範圍線
+            if (isPoly && isClosed) {
+                boundaryPolygons.push({ vertices: entVertices });
+                return;
+            }
+
+            // 5. 其他
+            if (ent.type === '3DFACE') ent.vertices.forEach(v=>terrainPointsRaw.push(v));
+            else if (ent.type === 'POINT' || ent.type === 'INSERT') terrainPointsRaw.push(ent.position);
+            else if (ent.type === 'LINE') featureLinesRaw.push([ent.vertices[0], ent.vertices[1]]);
+            else if (isPoly) featureLinesRaw.push(entVertices);
+        });
+
+        if(boundaryPolygons.length>0) { document.getElementById('tagB').className="tag tag-b active"; document.getElementById('tagB').innerText=`範圍(${boundaryPolygons.length})`; }
+        if(exclusionPolygons.length>0) { document.getElementById('tagE').className="tag tag-e active"; document.getElementById('tagE').innerText=`排除(${exclusionPolygons.length})`; }
+        if(featureLinesRaw.length>0) { document.getElementById('tagF').className="tag tag-f active"; document.getElementById('tagF').innerText=`特徵(${featureLinesRaw.length})`; }
+    }
+
+    function autoCorrectDensityPoints(polysWithDensity, refPoints) {
+        if (!refPoints || refPoints.length === 0) return;
+        
+        let fixedCount = 0;
+        
+        // [v12.0 New Logic] Use k-Nearest Neighbors instead of fixed radius
+        // This ensures points are only influenced by the closest contours, avoiding "overshoot" from distant points.
+        const K_NEAREST = 8; 
+        const POWER = 3; // Higher power = sharper local influence
+
+        polysWithDensity.forEach(item => {
+            const points = item.poly;
+            if(!points || points.length === 0) return;
+
+            let totalAbsZ = 0;
+            for(let p of points) { totalAbsZ += Math.abs(p.z); }
+            const avgZ = totalAbsZ / points.length;
+            
+            if (avgZ > 0.001) return; 
+
+            let hasChange = false;
+            
+            for (let i = 0; i < points.length; i++) {
+                const targetP = points[i];
+                
+                // Simple sort to find k-nearest (Can be optimized with QuadTree but sufficient for this scale)
+                // We map to distance first to avoid recalculating sqrt multiple times
+                const sortedRefs = refPoints.map(p => {
+                    const dx = p.x - targetP.x;
+                    const dy = p.y - targetP.y;
+                    return { p: p, distSq: dx*dx + dy*dy };
+                }).sort((a, b) => a.distSq - b.distSq).slice(0, K_NEAREST);
+
+                if (sortedRefs.length > 0) {
+                    const newZ = calculateIDW(sortedRefs, POWER);
+                    
+                    // Safety Clamp: Ensure newZ is within the min/max range of neighbors to prevent overshoot
+                    let minZ = Infinity, maxZ = -Infinity;
+                    sortedRefs.forEach(ref => {
+                        minZ = Math.min(minZ, ref.p.z);
+                        maxZ = Math.max(maxZ, ref.p.z);
+                    });
+                    
+                    // Allow slight extrapolation but clamp roughly to neighbors
+                    const buffer = (maxZ - minZ) * 0.1; 
+                    const clampedZ = Math.max(minZ - buffer, Math.min(maxZ + buffer, newZ));
+
+                    points[i].z = clampedZ;
+                    hasChange = true;
+                }
+            }
+            if(hasChange) fixedCount++;
+        });
+
+        if(fixedCount > 0) showToast(`已自動修正 ${fixedCount} 個 Z=0 邊界的高程`);
+    }
+
+    // [v12.0 Logic] Modified IDW to take pre-sorted neighbors array
+    function calculateIDW(neighbors, power) {
+        let sumWeights = 0;
+        let sumWeightedZ = 0;
+        
+        for (let item of neighbors) {
+            const dist = Math.sqrt(item.distSq);
+            if (dist < 0.001) return item.p.z; // Exact match
+            
+            const w = 1.0 / Math.pow(dist, power);
+            sumWeights += w;
+            sumWeightedZ += w * item.p.z;
+        }
+        
+        if (sumWeights === 0) return 0;
+        return sumWeightedZ / sumWeights;
+    }
+
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.innerText = msg;
+        t.style.opacity = 1;
+        setTimeout(() => t.style.opacity = 0, 3000);
+    }
+
+    function generateTerrainMesh() {
+        const group = scene3D.getObjectByName("terrainGroup");
+        cleanupObject(group); 
+        group.clear();
+        featureLinesVisuals = [];
+
+        const scale = parseFloat(document.querySelector('input[name="dxfUnit"]:checked').value);
+        const density = parseFloat(document.getElementById('densityInput').value); 
+        
+        const scopeMode = document.querySelector('input[name="scopeMode"]:checked').value;
+        const ignoreOuter = (scopeMode === 'local'); 
+        
+        const doAutoFix = document.getElementById('autoFixZ').checked;
+        const isWireframe = document.getElementById('showWireframe').checked;
+        const isMeshVisible = document.getElementById('showMesh').checked;
+        const areEdgesVisible = document.getElementById('showEdges').checked;
+        const areFeaturesVisible = document.getElementById('showFeatures').checked;
+        const theme = isDarkMode ? THEME_COLORS.dark : THEME_COLORS.light;
+
+        let scaledRefPoints = terrainPointsRaw.map(p => ({x: p.x*scale, y: p.y*scale, z: p.z*scale}));
+        
+        // 1. 加密
+        // [v11.9 Improvement] Force higher density on boundaries
+        const boundaryDensity = Math.min(density, 1.0);
+
+        let activeBounds = boundaryPolygons.map(b => {
+            const sVerts = b.vertices.map(v=>({x:v.x*scale, y:v.y*scale, z:v.z*scale, bulge:v.bulge, connectToStart:v.connectToStart}));
+            return { poly: densifyPolyline(sVerts, boundaryDensity), area: calcArea(sVerts) }; 
+        });
+
+        let clipExcls = exclusionPolygons.map(ex => {
+            const sVerts = ex.vertices.map(v=>({x:v.x*scale, y:v.y*scale, z:v.z*scale, bulge:v.bulge, connectToStart:v.connectToStart}));
+            return { poly: densifyPolyline(sVerts, boundaryDensity) };
+        });
+        
+        // [v11.7 Fix] Filter Raw Points inside Exclusion Zones
+        if (clipExcls.length > 0) {
+            scaledRefPoints = scaledRefPoints.filter(p => {
+                for (let ex of clipExcls) {
+                    if (isPointIn(p, ex.poly)) return false; 
+                }
+                return true;
+            });
+        }
+
+        // 2. IDW 修正
+        if (doAutoFix) {
+            autoCorrectDensityPoints(activeBounds, scaledRefPoints);
+            autoCorrectDensityPoints(clipExcls, scaledRefPoints);
+        }
+
+        // 3. 過濾最大
+        if(activeBounds.length > 0) {
+            if(ignoreOuter && activeBounds.length > 1) {
+                activeBounds.sort((a,b)=>b.area-a.area);
+                activeBounds.shift();
+            }
+        }
+
+        // 4. 準備頂點
+        let allVertices = [];
+        scaledRefPoints.forEach(p => allVertices.push(p));
+
+        featureLinesRaw.forEach(verts => {
+            const sVerts = verts.map(v=>({x:v.x*scale, y:v.y*scale, z:v.z*scale, bulge:v.bulge, connectToStart:v.connectToStart}));
+            
+            // [v11.7 Fix] Filter Feature Lines inside Exclusion Zones
+            let validVerts = [];
+            if(clipExcls.length > 0) {
+                 validVerts = sVerts.filter(p => {
+                    for (let ex of clipExcls) { if (isPointIn(p, ex.poly)) return false; }
+                    return true;
+                 });
+            } else {
+                validVerts = sVerts;
+            }
+            
+            if(validVerts.length > 1) {
+                const pts = densifyPolyline(sVerts, density); 
+                pts.forEach(p=>allVertices.push(p));
+                featureLinesVisuals.push(pts); 
+            }
+        });
+
+        activeBounds.forEach(b => { b.poly.forEach(p => allVertices.push(p)); });
+        clipExcls.forEach(ex => { ex.poly.forEach(p => allVertices.push(p)); });
+
+        if(allVertices.length<3) return;
+
+        let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity, minZ=Infinity, maxZ=-Infinity;
+        allVertices.forEach(v=>{
+            minX=Math.min(minX,v.x); maxX=Math.max(maxX,v.x);
+            minY=Math.min(minY,v.y); maxY=Math.max(maxY,v.y);
+            minZ=Math.min(minZ,v.z); maxZ=Math.max(maxZ,v.z);
+        });
+        globalOffset = {x:(minX+maxX)/2, y:(minY+maxY)/2, z:(minZ+maxZ)/2};
+
+        const vertices = [];
+        allVertices.forEach(v=>{
+            if(Math.abs(v.x-globalOffset.x)>500000 || Math.abs(v.y-globalOffset.y)>500000) return;
+            vertices.push({x:v.x-globalOffset.x, y:v.y-globalOffset.y, z:v.z-globalOffset.z}); 
+        });
+        
+        // Offset
+        activeBounds.forEach(b=>b.poly.forEach(p=>{p.x-=globalOffset.x; p.y-=globalOffset.y; p.z-=globalOffset.z}));
+        clipExcls.forEach(ex=>ex.poly.forEach(p=>{p.x-=globalOffset.x; p.y-=globalOffset.y; p.z-=globalOffset.z}));
+
+        const coords = new Float64Array(vertices.length*2);
+        for(let i=0; i<vertices.length; i++){coords[2*i]=vertices[i].x; coords[2*i+1]=vertices[i].y;}
+        const delaunay = new Delaunator(coords);
+        const triangles = delaunay.triangles;
+        const validIndices = [];
+
+        let meshMinZ = Infinity;
+        let meshMaxZ = -Infinity;
+
+        for(let i=0; i<triangles.length; i+=3) {
+            const i1=triangles[i], i2=triangles[i+1], i3=triangles[i+2];
+            const p1=vertices[i1], p2=vertices[i2], p3=vertices[i3];
+            const cx=(p1.x+p2.x+p3.x)/3, cy=(p1.y+p2.y+p3.y)/3;
+            const cent={x:cx, y:cy};
+            let keep = true;
+            if(activeBounds.length>0) {
+                let inAny=false;
+                for(let b of activeBounds){ if(isPointIn(cent, b.poly)){inAny=true; break;} } 
+                if(!inAny) keep=false;
+            }
+            if(keep && clipExcls.length>0) {
+                for(let ex of clipExcls){ if(isPointIn(cent, ex.poly)){keep=false; break;} } 
+            }
+            if(keep) {
+                validIndices.push(i1, i2, i3);
+                meshMinZ = Math.min(meshMinZ, p1.z, p2.z, p3.z);
+                meshMaxZ = Math.max(meshMaxZ, p1.z, p2.z, p3.z);
+            }
+        }
+
+        if (meshMinZ === Infinity) { meshMinZ = minZ - globalOffset.z; meshMaxZ = maxZ - globalOffset.z; }
+
+        terrainGeometry = new THREE.BufferGeometry();
+        const posArr = new Float32Array(vertices.length*3);
+        const colArr = new Float32Array(vertices.length*3);
+        const color = new THREE.Color();
+        const zRange = meshMaxZ - meshMinZ || 1;
+
+        for(let i=0; i<vertices.length; i++){
+            posArr[i*3]=vertices[i].x; posArr[i*3+1]=vertices[i].y; posArr[i*3+2]=vertices[i].z;
+            const h = (vertices[i].z - meshMinZ) / zRange;
+            const clampedH = Math.max(0, Math.min(1, h));
+            color.setHSL((1.0-clampedH)*0.66, 0.8, 0.5);
+            colArr[i*3]=color.r; colArr[i*3+1]=color.g; colArr[i*3+2]=color.b;
+        }
+        terrainGeometry.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+        terrainGeometry.setAttribute('color', new THREE.BufferAttribute(colArr, 3));
+        terrainGeometry.setIndex(validIndices);
+        terrainGeometry.computeVertexNormals();
+
+        const mat = new THREE.MeshStandardMaterial({
+            vertexColors:true, side:THREE.DoubleSide, flatShading:true, roughness:0.8,
+            wireframe: isWireframe
+        });
+        const mesh = new THREE.Mesh(terrainGeometry, mat);
+        mesh.name = "terrain";
+        mesh.visible = isMeshVisible;
+        group.add(mesh);
+
+        const avgZ_disp = (meshMinZ+meshMaxZ)/2 + globalOffset.z;
+        initSlider(meshMinZ+globalOffset.z, meshMaxZ+globalOffset.z, avgZ_disp);
+        
+        const legendDiv = document.getElementById('color-legend');
+        const legendMax = document.getElementById('legend-max');
+        const legendMin = document.getElementById('legend-min');
+        if (legendDiv) {
+            if (currentMode === '3d') {
+                legendDiv.style.display = 'flex';
+                legendMax.innerText = (meshMaxZ + globalOffset.z).toFixed(2);
+                legendMin.innerText = (meshMinZ + globalOffset.z).toFixed(2);
+            }
+        }
+
+        if(!refPlaneMesh) {
+            const size = Math.max(maxX-minX, maxY-minY);
+            camera3D.position.set(0, -size*0.6, size*0.8);
+            camera3D.lookAt(0,0,0);
+            controls3D.target.set(0,0,0);
+            controls3D.update();
+        }
+
+        updateRefPlane();
+        calcVolume();
+        
+        activeBounds.forEach(b=>draw3DLine(b.poly, theme.boundary, "edges", "BOUNDARY", areEdgesVisible));
+        clipExcls.forEach(ex=>draw3DLine(ex.poly, theme.exclusion, "edges", "EXCLUSION", areEdgesVisible));
+        drawFeatures3D(globalOffset, theme.feature, areFeaturesVisible);
+    }
+
+    function draw3DLine(points, color, name, type, visible) {
+        const pos = [];
+        points.forEach(p=>pos.push(p.x, p.y, p.z + 0.2)); 
+        pos.push(points[0].x, points[0].y, points[0].z + 0.2);
+        
+        const geo = new THREE.BufferGeometry().setFromPoints(pos.map((v,i,arr)=>i%3==0?new THREE.Vector3(arr[i],arr[i+1],arr[i+2]):null).filter(v=>v));
+        const line = new THREE.Line(geo, new THREE.LineBasicMaterial({color:color}));
+        line.name = name;
+        if(type) line.userData = { type: type };
+        line.visible = visible; 
+        scene3D.getObjectByName("terrainGroup").add(line);
+    }
+    
+    function drawFeatures3D(offset, color, visible) {
+        const group = scene3D.getObjectByName("terrainGroup");
+        const isVis = document.getElementById('showFeatures').checked;
+        featureLinesVisuals.forEach(pts => {
+            const pos = [];
+            pts.forEach(p=>pos.push(p.x-offset.x, p.y-offset.y, p.z-offset.z+0.2));
+            const geo = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+            const line = new THREE.Line(geo, new THREE.LineBasicMaterial({color:color, transparent:true, opacity:0.5}));
+            line.name = "featureLine";
+            line.visible = visible; 
+            group.add(line);
+        });
+    }
+    
+    function calcVolume() {
+        if(!terrainGeometry) return;
+        const refZ = parseFloat(document.getElementById('refInput').value) - globalOffset.z;
+        const pos = terrainGeometry.attributes.position.array;
+        const idx = terrainGeometry.index.array;
+        let cut=0, fill=0;
+        for(let i=0; i<idx.length; i+=3) {
+            const i1=idx[i], i2=idx[i+1], i3=idx[i+2];
+            const x1=pos[i1*3], y1=pos[i1*3+1], z1=pos[i1*3+2];
+            const x2=pos[i2*3], y2=pos[i2*3+1], z2=pos[i2*3+2];
+            const x3=pos[i3*3], y3=pos[i3*3+1], z3=pos[i3*3+2];
+            const area = Math.abs(0.5*(x1*(y2-y3)+x2*(y3-y1)+x3*(y1-y2)));
+            const avgZ = (z1+z2+z3)/3.0;
+            const diff = avgZ - refZ;
+            const vol = area*diff;
+            if(vol>0) cut+=vol; else fill+=Math.abs(vol);
+        }
+        document.getElementById('resCut').innerText=cut.toFixed(2);
+        document.getElementById('resFill').innerText=fill.toFixed(2);
+        document.getElementById('resNet').innerText=(cut-fill).toFixed(2);
+    }
+    function updateRefPlane() {
+        const val = parseFloat(document.getElementById('refInput').value); if(isNaN(val)) return;
+        const localZ = val - globalOffset.z;
+        if(!refPlaneMesh) {
+            const box = new THREE.Box3().setFromObject(scene3D.getObjectByName("terrainGroup"));
+            const size = Math.max(box.max.x-box.min.x, box.max.y-box.min.y)*2;
+            const geo = new THREE.PlaneGeometry(size, size);
+            const mat = new THREE.MeshBasicMaterial({color:0x00aaff, transparent:true, opacity:0.3, side:THREE.DoubleSide, depthWrite:false});
+            refPlaneMesh = new THREE.Mesh(geo, mat);
+            scene3D.add(refPlaneMesh);
+        }
+        refPlaneMesh.position.z = localZ;
+        refPlaneMesh.visible = document.getElementById('showPlane').checked;
+    }
+    
+    // --- 2D Logic ---
+    function reset2D() {
+        entitiesGroup2D.clear();
+        document.getElementById('inspector-summary').innerHTML = '';
+        document.getElementById('inspector-layers').innerHTML = '';
+        document.getElementById('inspector-entities').innerHTML = '';
+        document.getElementById('prop-panel').style.display = 'none';
+        allEntitiesList = [];
+        bounds2D = null;
+    }
+
+    function process2D(dxf) {
+        if (!dxf.entities) return;
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        const theme = isDarkMode ? THEME_COLORS.dark : THEME_COLORS.light;
+        const unitScale = parseFloat(document.querySelector('input[name="dxfUnit"]:checked').value);
+        const pointSize = 0.5 / unitScale;
+
+        dxf.entities.forEach((ent, index) => {
+            const layer = (ent.layer || "").toLowerCase();
+            let entType = 'FEATURE';
+            let color = theme.feature;
+
+            if (ent.type === 'POINT' || ent.type === 'INSERT') {
+                entType = 'POINT'; color = theme.point;
+            } else if (LAYER_KEYS.EXCLUSION.some(k => layer.includes(k))) {
+                entType = 'EXCLUSION'; color = theme.exclusion;
+            } else if (LAYER_KEYS.BOUNDARY.some(k => layer.includes(k))) {
+                entType = 'BOUNDARY'; color = theme.boundary;
+            }
+
+            const threeColor = new THREE.Color(color);
+            allEntitiesList.push({ idx: index, type: ent.type, layer: ent.layer || "0", handle: ent.handle, color: threeColor, entType: entType });
+
+            const mat = new THREE.LineBasicMaterial({ color: color });
+
+            let mesh = null;
+            if (ent.type === 'LINE') {
+                const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(ent.vertices[0].x, ent.vertices[0].y, 0), new THREE.Vector3(ent.vertices[1].x, ent.vertices[1].y, 0)]);
+                mesh = new THREE.Line(geo, mat);
+                updateBounds(ent.vertices[0]); updateBounds(ent.vertices[1]);
+            } else if (ent.type === 'LWPOLYLINE' || ent.type === 'POLYLINE') {
+                const rawVerts = ent.vertices.map(v => ({ x: v.x, y: v.y, z: 0, bulge: v.bulge }));
+                const isClosed = (ent.shape || (ent.flags & 1));
+                if (isClosed && rawVerts.length > 0) rawVerts[rawVerts.length - 1].connectToStart = true;
+                
+                const pts = densifyPolyline(rawVerts, 0.5); 
+                if(pts.length > 0) {
+                    const vec3s = pts.map(p => new THREE.Vector3(p.x, p.y, 0));
+                    if (isClosed) vec3s.push(vec3s[0]);
+                    const geo = new THREE.BufferGeometry().setFromPoints(vec3s);
+                    mesh = new THREE.Line(geo, mat);
+                    pts.forEach(p => updateBounds(p));
+                }
+            } else if (ent.type === 'CIRCLE' || ent.type === 'ARC') {
+                const curvePts = convertArcToPoints(ent);
+                if(curvePts.length > 0) {
+                    const vec3s = curvePts.map(p => new THREE.Vector3(p.x, p.y, 0));
+                    if (ent.type === 'CIRCLE') vec3s.push(vec3s[0]);
+                    const geo = new THREE.BufferGeometry().setFromPoints(vec3s);
+                    mesh = new THREE.Line(geo, mat);
+                    curvePts.forEach(p => updateBounds(p));
+                }
+            } else if (ent.type === 'POINT' || ent.type === 'INSERT') {
+                const pt = ent.position || ent.insertionPoint;
+                if(pt) {
+                    const size = pointSize;
+                    const pts = [
+                        new THREE.Vector3(pt.x - size, pt.y - size, 0),
+                        new THREE.Vector3(pt.x + size, pt.y + size, 0),
+                        new THREE.Vector3(pt.x - size, pt.y + size, 0),
+                        new THREE.Vector3(pt.x + size, pt.y - size, 0)
+                    ];
+                    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+                    mesh = new THREE.LineSegments(geo, mat);
+                    updateBounds(pt);
+                }
+            }
+            if (mesh) {
+                mesh.userData = { type: entType };
+                entitiesGroup2D.add(mesh);
+            }
+        });
+        if(minX !== Infinity) bounds2D = { minX, maxX, minY, maxY };
+        render2DLists();
+        function updateBounds(v) { minX=Math.min(minX,v.x); maxX=Math.max(maxX,v.x); minY=Math.min(minY,v.y); maxY=Math.max(maxY,v.y); }
+    }
+
+    function fitCamera2D() {
+        if (!bounds2D) return;
+        const container = document.getElementById('view-2d');
+        if (container.clientWidth === 0) return;
+        const w = bounds2D.maxX - bounds2D.minX;
+        const h = bounds2D.maxY - bounds2D.minY;
+        const cx = (bounds2D.minX + bounds2D.maxX) / 2;
+        const cy = (bounds2D.minY + bounds2D.maxY) / 2;
+        const zoom = Math.min(container.clientWidth / w, container.clientHeight / h) * 0.9;
+        camera2D.zoom = zoom;
+        camera2D.position.set(cx, cy, 100);
+        camera2D.lookAt(cx, cy, 0);
+        camera2D.updateProjectionMatrix();
+        controls2D.target.set(cx, cy, 0);
+        controls2D.update();
+    }
+
+    function render2DLists() {
+        const layerCounts = {};
+        allEntitiesList.forEach(e => {
+            if(!layerCounts[e.layer]) layerCounts[e.layer] = {count:0, color: e.color};
+            layerCounts[e.layer].count++;
+        });
+        const divSum = document.getElementById('inspector-summary');
+        divSum.innerHTML = `<div class="stat-item"><span style="color:var(--text-sub)">總實體數</span><span class="stat-count">${allEntitiesList.length}</span></div>`;
+        const divLay = document.getElementById('inspector-layers');
+        divLay.innerHTML = '';
+        for(let [k,v] of Object.entries(layerCounts)) {
+            divLay.innerHTML += `<div class="stat-item" onclick="filterEntities('${k}')">
+                <span style="display:flex;align-items:center"><span style="width:8px;height:8px;border-radius:50%;background:#${v.color.getHexString()};margin-right:5px"></span>${k}</span>
+                <span class="stat-count">${v.count}</span>
+            </div>`;
+        }
+        renderEntityRows(allEntitiesList.slice(0, 200));
+    }
+
+    function renderEntityRows(list) {
+        const divEnt = document.getElementById('inspector-entities');
+        divEnt.innerHTML = '';
+        list.forEach(item => {
+            divEnt.innerHTML += `<div class="entity-row" onclick="showProps(${item.idx})">
+                <span class="ent-icon" style="background:#${item.color.getHexString()}"></span>
+                <span class="ent-type">${item.type}</span>
+                <span class="ent-layer">${item.layer}</span>
+            </div>`;
+        });
+    }
+
+    window.filterEntities = function(layer) {
+        const filtered = allEntitiesList.filter(e => e.layer === layer);
+        renderEntityRows(filtered);
+    }
+
+    window.showProps = function(idx) {
+        const ent = currentDxf.entities[idx];
+        document.getElementById('prop-panel').style.display = 'block';
+        document.getElementById('json-viewer').innerHTML = syntaxHighlight(JSON.stringify(ent, null, 2));
+    }
+
+    window.switchMode = function(mode) {
+        currentMode = mode;
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.scroll-content').forEach(c => c.classList.remove('active'));
+        
+        if (mode === '3d') {
+            document.querySelectorAll('.mode-btn')[0].classList.add('active');
+            document.getElementById('panel-3d').classList.add('active');
+            document.getElementById('view-3d').style.display = 'block';
+            document.getElementById('view-2d').style.display = 'none';
+            document.getElementById('prop-panel').style.display = 'none';
+            if (terrainGeometry) {
+                document.getElementById('color-legend').style.display = 'flex';
+            }
+        } else {
+            document.querySelectorAll('.mode-btn')[1].classList.add('active');
+            document.getElementById('panel-2d').classList.add('active');
+            document.getElementById('view-3d').style.display = 'none';
+            document.getElementById('view-2d').style.display = 'block';
+            document.getElementById('color-legend').style.display = 'none';
+            
+            setTimeout(() => {
+                const w = document.getElementById('view-2d').clientWidth;
+                const h = document.getElementById('view-2d').clientHeight;
+                renderer2D.setSize(w, h);
+                fitCamera2D(); 
+            }, 50);
+        }
+    }
+
+    // UI Events
+    const refSlider = document.getElementById('refSlider');
+    const refInput = document.getElementById('refInput');
+    const densitySlider = document.getElementById('densitySlider');
+    const densityInput = document.getElementById('densityInput');
+
+    function initSlider(min, max, current) {
+        const buf = (max-min)*0.1 || 10;
+        refSlider.min = (min-buf).toFixed(1); refSlider.max = (max+buf).toFixed(1);
+        refSlider.step = ((max-min)/500).toFixed(2);
+        refSlider.value = current.toFixed(1); refSlider.disabled = false;
+        refInput.value = current.toFixed(1); refInput.disabled = false;
+    }
+    refSlider.oninput = (e) => { refInput.value=e.target.value; updateRefPlane(); calcVolume(); };
+    refInput.onchange = (e) => { refSlider.value=e.target.value; updateRefPlane(); calcVolume(); };
+    
+    function onDensityChange() {
+        if(!currentDxf) return;
+        if(densityDebounce) clearTimeout(densityDebounce);
+        densityDebounce = setTimeout(() => {
+            generateTerrainMesh();
+        }, 300); 
+    }
+    densitySlider.addEventListener('input', (e) => { 
+        densityInput.value = e.target.value; 
+        onDensityChange(); 
+    });
+    densityInput.addEventListener('change', (e) => { 
+        densitySlider.value = e.target.value; 
+        onDensityChange(); 
+    });
+
+    document.querySelectorAll('input[name="scopeMode"]').forEach(r => r.addEventListener('change', () => { 
+        if(currentDxf) generateTerrainMesh(); 
+    }));
+
+    document.getElementById('autoFixZ').addEventListener('change', () => { if(currentDxf) generateTerrainMesh(); });
+    document.querySelectorAll('input[name="dxfUnit"]').forEach(r => r.addEventListener('change', () => { 
+        showToast("單位已變更，請點擊「開始計算」重新生成");
+    }));
+
+    document.getElementById('showMesh').onchange = e => { const t=scene3D.getObjectByName("terrainGroup").getObjectByName('terrain'); if(t) t.visible=e.target.checked; };
+    document.getElementById('showWireframe').onchange = e => { const t=scene3D.getObjectByName("terrainGroup").getObjectByName('terrain'); if(t) t.material.wireframe=e.target.checked; };
+    document.getElementById('showPlane').onchange = e => { if(refPlaneMesh) refPlaneMesh.visible=e.target.checked; };
+    document.getElementById('showEdges').onchange = e => { scene3D.getObjectByName("terrainGroup").children.forEach(c => { if(c.name.includes('edges')) c.visible=e.target.checked; }); };
+    document.getElementById('showFeatures').onchange = e => { scene3D.getObjectByName("terrainGroup").children.forEach(c => { if(c.name==='featureLine') c.visible=e.target.checked; }); };
+
+    function convertArcToPoints(ent) {
+        let startAngle = (ent.startAngle !== undefined) ? ent.startAngle : 0;
+        let endAngle = (ent.endAngle !== undefined) ? ent.endAngle : 2 * Math.PI;
+        if (ent.type === 'CIRCLE') { startAngle = 0; endAngle = 2 * Math.PI; }
+
+        const z = (ent.center.z !== undefined) ? ent.center.z : 0;
+        const curve = new THREE.EllipseCurve(ent.center.x, ent.center.y, ent.radius, ent.radius, startAngle, endAngle, false, 0);
+        const segments = Math.max(32, Math.floor(ent.radius * 4)); 
+        const points2D = curve.getPoints(segments); 
+        return points2D.map(p => ({ x: p.x, y: p.y, z: z }));
+    }
+
+    function densifyPolyline(vertices, density) {
+        const points = []; 
+        if(!vertices || vertices.length < 2) return points;
+        for (let i = 0; i < vertices.length; i++) {
+            const v1 = vertices[i];
+            if (i === vertices.length - 1) {
+                if(v1.connectToStart) { processSegment(v1, vertices[0], points, density); } 
+                else { points.push({x: v1.x, y: v1.y, z: v1.z}); }
+                break; 
+            }
+            processSegment(v1, vertices[(i + 1) % vertices.length], points, density);
+        }
+        return points;
+    }
+
+    function processSegment(v1, v2, points, density) {
+        if (points.length === 0 || Math.abs(points[points.length-1].x - v1.x) > 1e-6 || Math.abs(points[points.length-1].y - v1.y) > 1e-6) {
+            points.push({x: v1.x, y: v1.y, z: v1.z});
+        }
+        const dx = v2.x - v1.x, dy = v2.y - v1.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        
+        if (v1.bulge && Math.abs(v1.bulge) > 1e-6) {
+            const theta = 4 * Math.atan(v1.bulge);
+            const radius = (dist / 2) * (Math.pow(v1.bulge, 2) + 1) / (2 * Math.abs(v1.bulge)); 
+            const radius2 = (Math.pow(dist/2, 2) + Math.pow(v1.bulge * dist/2, 2)) / (2 * Math.abs(v1.bulge * dist/2)); 
+
+            const midX = (v1.x + v2.x) / 2, midY = (v1.y + v2.y) / 2;
+            const perpX = -dy / dist, perpY = dx / dist;
+            const dir = (v1.bulge > 0) ? 1 : -1;
+            const distToCenter = Math.sqrt(Math.max(0, radius2*radius2 - Math.pow(dist/2, 2)));
+            const centerX = midX + dir * perpX * distToCenter;
+            const centerY = midY + dir * perpY * distToCenter;
+            
+            const startAngle = Math.atan2(v1.y - centerY, v1.x - centerX);
+            const endAngle = Math.atan2(v2.y - centerY, v2.x - centerX);
+            const arcLen = Math.abs(theta * radius2);
+            const segments = Math.ceil(arcLen / density);
+            let totalAngle = endAngle - startAngle;
+            if (v1.bulge > 0 && totalAngle < 0) totalAngle += 2 * Math.PI;
+            if (v1.bulge < 0 && totalAngle > 0) totalAngle -= 2 * Math.PI;
+
+            for (let k = 1; k < segments; k++) {
+                const t = k / segments;
+                const currentAngle = startAngle + t * totalAngle;
+                const px = centerX + radius2 * Math.cos(currentAngle);
+                const py = centerY + radius2 * Math.sin(currentAngle);
+                const pz = v1.z * (1-t) + v2.z * t;
+                points.push({ x: px, y: py, z: pz });
+            }
+        } else {
+            const segments = Math.ceil(dist / density);
+            if (segments > 1) {
+                for (let k = 1; k < segments; k++) {
+                    const t = k / segments;
+                    points.push({ x: v1.x + dx * t, y: v1.y + dy * t, z: v1.z * (1-t) + v2.z * t });
+                }
+            }
+        }
+    }
+
+    function isPointIn(p, polygon) {
+        let inside = false;
+        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+            const xi = polygon[i].x, yi = polygon[i].y;
+            const xj = polygon[j].x, yj = polygon[j].y;
+            const intersect = ((yi > p.y) !== (yj > p.y)) && (p.x < (xj - xi) * (p.y - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
+    }
+    function calcArea(v) { let a=0; for(let i=0;i<v.length;i++){ let j=(i+1)%v.length; a+=v[i].x*v[j].y; a-=v[j].x*v[i].y; } return Math.abs(a/2); }
+    
+    function getColor(ent) { if(ent.color!==undefined && ent.color!==256) return getAciColor(ent.color); return getColorByLayer(ent.layer); }
+    function getColorByLayer(layer) { if(!layer) return new THREE.Color(0xffffff); let hash=0; for(let i=0;i<layer.length;i++) hash=layer.charCodeAt(i)+((hash<<5)-hash); const c=(hash&0x00ffffff).toString(16).toUpperCase(); return new THREE.Color('#'+"00000".substring(0,6-c.length)+c); }
+    function getAciColor(idx) { switch(idx){case 1:return new THREE.Color(0xff0000); case 2:return new THREE.Color(0xffff00); case 3:return new THREE.Color(0x00ff00); case 4:return new THREE.Color(0x00ffff); case 5:return new THREE.Color(0x0000ff); case 6:return new THREE.Color(0xff00ff); case 7:return new THREE.Color(0xffffff); default:return new THREE.Color(0xaaaaaa);} }
+    function syntaxHighlight(json) { return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) { var cls = 'json-num'; if (/^"/.test(match)) { if (/:$/.test(match)) cls = 'json-key'; else cls = 'json-val'; } else if (/true|false/.test(match)) cls = 'json-bool'; else if (/null/.test(match)) cls = 'json-bool'; return '<span class="' + cls + '">' + match + '</span>'; }); }
+
+    init();
+    function animate() { requestAnimationFrame(animate); if(currentMode==='3d') controls3D.update(); else controls2D.update(); if(currentMode==='3d') renderer3D.render(scene3D, camera3D); else renderer2D.render(scene2D, camera2D); }
+    
+    window.onresize = () => {
+        const w=document.body.clientWidth-380, h=window.innerHeight;
+        camera3D.aspect=w/h; camera3D.updateProjectionMatrix(); renderer3D.setSize(w, h);
+        
+        const aspect=w/h, f=1000;
+        camera2D.left=-f*aspect/2; camera2D.right=f*aspect/2; camera2D.top=f/2; camera2D.bottom=-f/2;
+        camera2D.updateProjectionMatrix(); renderer2D.setSize(w, h);
+    };
+    window.dispatchEvent(new Event('resize'));
+</script>
+</body>
+</html>

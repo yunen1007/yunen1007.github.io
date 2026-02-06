@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel VBA 密碼破解工具 (Web修復版)</title>
+    <!-- 引入 JSZip 庫 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        body { font-family: "Microsoft JhengHei", Arial, sans-serif; background-color: #f4f4f9; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .container { background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 500px; text-align: center; }
+        h1 { color: #2c3e50; margin-bottom: 1rem; }
+        
+        /* 上傳區塊樣式 */
+        .upload-box { 
+            border: 2px dashed #3498db; 
+            padding: 2rem; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            transition: 0.3s; 
+            margin-bottom: 1rem; 
+            display: block; /* 讓 label 撐開 */
+            background-color: #fff;
+        }
+        .upload-box:hover { background-color: #f0f8ff; border-color: #2980b9; }
+        /* 拖曳時的樣式 */
+        .upload-box.dragover { background-color: #e8f6f3; border-color: #27ae60; transform: scale(1.02); }
+        
+        input[type="file"] { display: none; }
+        
+        button { background-color: #27ae60; color: white; border: none; padding: 10px 20px; font-size: 1rem; border-radius: 5px; cursor: pointer; width: 100%; transition: 0.3s; }
+        button:hover { background-color: #219150; }
+        button:disabled { background-color: #95a5a6; cursor: not-allowed; }
+        
+        #status { margin-top: 1rem; font-size: 0.9rem; color: #555; white-space: pre-line; text-align: left; min-height: 1.2em; }
+        .note { font-size: 0.8rem; color: #e74c3c; margin-top: 1rem; text-align: left; line-height: 1.5; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Excel VBA 破解器</h1>
+    <p>支援 .xlsm, .xlam (不支援舊版 .xls)</p>
+    
+    <label class="upload-box" id="dropZone">
+        <span id="fileName">點擊選擇檔案 (或拖曳至此)</span>
+        <input type="file" id="fileInput" accept=".xlsm,.xlam,.xltm">
+    </label>
+
+    <button id="processBtn" disabled>破解並下載</button>
+
+    <div id="status"></div>
+    
+    <div class="note">
+        <strong>後續步驟：</strong><br>
+        1. 下載後開啟檔案，若出現「發現問題」請點「是(Yes)」。<br>
+        2. 若還有錯誤視窗，點「關閉」或「確定」。<br>
+        3. 按 Alt + F11 進入 VBA。<br>
+        4. 點選「工具」>「屬性」>「保護」。<br>
+        5. 輸入一個新密碼 (如 1234) 並存檔。<br>
+        6. 重新開啟檔案即可用新密碼解鎖。
+    </div>
+</div>
+
+<script>
+    const fileInput = document.getElementById('fileInput');
+    const processBtn = document.getElementById('processBtn');
+    const statusDiv = document.getElementById('status');
+    const fileNameSpan = document.getElementById('fileName');
+    const dropZone = document.getElementById('dropZone');
+    let selectedFile = null;
+
+    // --- 核心邏輯：處理檔案選取 ---
+    function handleFile(file) {
+        if (!file) return;
+
+        // 簡單檢查副檔名
+        const fileName = file.name.toLowerCase();
+        if (!fileName.endsWith('.xlsm') && !fileName.endsWith('.xlam') && !fileName.endsWith('.xltm')) {
+            alert("警告：這看起來不像支援的 Excel 巨集檔案 (.xlsm, .xlam)。\n請確認檔案格式。");
+        }
+
+        selectedFile = file;
+        fileNameSpan.textContent = file.name;
+        fileNameSpan.style.fontWeight = "bold";
+        processBtn.disabled = false;
+        
+        // 重置狀態訊息
+        statusDiv.textContent = "檔案已就緒，請點擊破解按鈕。";
+        statusDiv.style.color = "#333";
+    }
+
+    // --- 事件 1: 點擊 Input 選擇 ---
+    fileInput.addEventListener('click', function() {
+        // 關鍵修正：每次點擊都清空 value，這樣選同一個檔案也能觸發 change
+        this.value = ''; 
+    });
+
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            handleFile(e.target.files[0]);
+        }
+    });
+
+    // --- 事件 2: 拖曳功能 (Drag & Drop) ---
+    // 防止瀏覽器預設開啟檔案行為
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    // 拖曳進入效果
+    dropZone.addEventListener('dragover', () => {
+        dropZone.classList.add('dragover');
+        fileNameSpan.textContent = "放開滑鼠以載入檔案";
+    });
+
+    // 拖曳離開效果
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+        fileNameSpan.textContent = selectedFile ? selectedFile.name : "點擊選擇檔案 (或拖曳至此)";
+    });
+
+    // 放開滑鼠 (Drop)
+    dropZone.addEventListener('drop', (e) => {
+        dropZone.classList.remove('dragover');
+        const dt = e.dataTransfer;
+        const files = dt.files;
+
+        if (files.length > 0) {
+            handleFile(files[0]);
+        }
+    });
+
+    // --- 事件 3: 執行破解 ---
+    processBtn.addEventListener('click', async () => {
+        if (!selectedFile) return;
+
+        try {
+            statusDiv.textContent = "正在讀取並分析檔案...";
+            processBtn.disabled = true;
+
+            const zip = new JSZip();
+            const contents = await zip.loadAsync(selectedFile);
+
+            const vbaFile = contents.file("xl/vbaProject.bin");
+            if (!vbaFile) {
+                throw new Error("錯誤：找不到 vbaProject.bin。\n這可能不是有效的 Excel 巨集檔案，或是舊版 (.xls) 格式。");
+            }
+
+            // 讀取為二進位陣列
+            let data = await vbaFile.async("uint8array");
+            let modifiedCount = 0;
+
+            // 遍歷尋找並替換 (嚴格長度控制)
+            for (let i = 0; i < data.length - 5; i++) {
+                
+                // 1. DPB= -> DPx=
+                if (data[i] === 68 && data[i+1] === 80 && data[i+2] === 66 && data[i+3] === 61) {
+                    data[i+2] = 120; // x
+                    modifiedCount++;
+                }
+
+                // 2. CMG= -> CMx=
+                if (data[i] === 67 && data[i+1] === 77 && data[i+2] === 71 && data[i+3] === 61) {
+                    data[i+2] = 120; // x
+                    modifiedCount++;
+                }
+
+                // 3. GC= -> Gx= (解決手動修改 GCx 會導致位移的問題)
+                if (data[i] === 71 && data[i+1] === 67 && data[i+2] === 61) {
+                    data[i+1] = 120; // x
+                    modifiedCount++;
+                }
+            }
+
+            if (modifiedCount === 0) {
+                throw new Error("找不到加密標籤，此檔案可能未加密或結構特殊。");
+            }
+
+            // 寫回並產生新檔
+            zip.file("xl/vbaProject.bin", data);
+            const newBlob = await zip.generateAsync({type: "blob"});
+            
+            // 下載
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(newBlob);
+            
+            // 檔名處理：加上 _unlocked
+            let originalName = selectedFile.name;
+            let dotIndex = originalName.lastIndexOf('.');
+            let newName = originalName.substring(0, dotIndex) + "_unlocked" + originalName.substring(dotIndex);
+            
+            link.download = newName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            statusDiv.textContent = `✅ 成功！已修改 ${modifiedCount} 處標籤。\n檔案已下載：${newName}`;
+            statusDiv.style.color = "green";
+
+        } catch (err) {
+            console.error(err);
+            statusDiv.textContent = "❌ " + err.message;
+            statusDiv.style.color = "red";
+        } finally {
+            // 不要在這裡解鎖按鈕，強制使用者若要再次下載需重新確認檔案
+            // 但為了方便可以解鎖，視需求而定，這裡設定延遲解鎖
+            setTimeout(() => { processBtn.disabled = false; }, 1000);
+        }
+    });
+</script>
+
+</body>
+</html>
